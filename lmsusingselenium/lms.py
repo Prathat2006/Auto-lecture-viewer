@@ -8,6 +8,7 @@ import time
 from dotenv import load_dotenv
 import os
 import traceback
+import re
 
 def setup_driver():
     options = webdriver.ChromeOptions()
@@ -240,174 +241,294 @@ def navigate_to_self_paced_learning(driver):
         driver.save_screenshot("self_paced_error.png")
         return False
 
-def get_and_select_week(driver):
+def select_and_open_module(driver):
     try:
         wait = WebDriverWait(driver, 10)
         time.sleep(2)
         
-        # Print html source of a small section for debugging
-        print("Taking screenshot of current page for reference...")
-        driver.save_screenshot("before_weeks.png")
+        print("Taking screenshot of self-paced learning page...")
+        driver.save_screenshot("self_paced_learning.png")
         
-        # More specific XPATH that targets the course section headers and extracts their data
-        print("\nSearching for available weeks...")
-        week_elements = driver.find_elements(By.CSS_SELECTOR, ".course-section-header[data-for='section_title']")
+        # Find all module sections using the specified class
+        print("\nSearching for available modules...")
+        section_headers = driver.find_elements(By.CSS_SELECTOR, "div.course-section-header.d-flex")
         
-        if not week_elements:
-            print("No week elements found. Trying alternative selector...")
-            week_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Week-')]")
-        
-        # Extract week names and organize them
-        weeks = {}
-        for i, elem in enumerate(week_elements):
-            try:
-                # Try to find the h3 within the section header
-                h3_elem = elem.find_element(By.CSS_SELECTOR, "h3.sectionname")
-                week_name = h3_elem.text.strip()
-                # If week_name is empty, try getting the aria-label from the button
-                if not week_name:
-                    try:
-                        button = elem.find_element(By.CSS_SELECTOR, "a[aria-label]")
-                        week_name = button.get_attribute("aria-label")
-                    except:
-                        week_name = f"Week {i+1}"
-            except:
-                # If h3 not found, try getting text directly or use default
-                week_name = elem.text.strip() or f"Week {i+1}"
-                
-            # Try to extract week number if possible
-            if "Week-" not in week_name and elem.get_attribute("data-number"):
-                data_number = elem.get_attribute("data-number")
-                week_name = f"Week-{data_number}"
-                
-            weeks[i+1] = {"name": week_name, "element": elem}
-        
-        if not weeks:
-            print("No week elements found. Taking screenshot and saving page source...")
-            driver.save_screenshot("no_weeks_found.png")
-            with open("page_source.html", "w", encoding="utf-8") as f:
+        if not section_headers:
+            print("No section headers found. Saving page source for inspection...")
+            with open("self_paced_page.html", "w", encoding="utf-8") as f:
                 f.write(driver.page_source)
-            print("Saved page source to 'page_source.html'")
+            print("Page source saved to 'self_paced_page.html'")
             return None
-            
-        # Display available weeks to user
-        print("\nAvailable weeks:")
-        for num, week_info in weeks.items():
-            print(f"{num}. {week_info['name']}")
         
-        # Get user selection
+        # Extract modules by looking for "Module-X" in the h3 elements
+        modules = {}
+        module_count = 0
+        
+        for i, header in enumerate(section_headers):
+            try:
+                # Try to find h3 inside the header
+                h3_element = header.find_element(By.TAG_NAME, "h3")
+                h3_text = h3_element.text.strip()
+                
+                # Use regex to extract module number
+                module_match = re.search(r"Module-(\d+)", h3_text, re.IGNORECASE)
+                
+                if module_match:
+                    module_count += 1
+                    module_num = module_match.group(1)
+                    module_name = f"Module-{module_num}"
+                    
+                    # Get the data-id attribute for identification
+                    data_id = header.get_attribute("data-id")
+                    data_number = header.get_attribute("data-number")
+                    
+                    modules[module_count] = {
+                        "name": module_name,
+                        "full_text": h3_text,
+                        "element": header,
+                        "data_id": data_id,
+                        "data_number": data_number
+                    }
+                    
+                    print(f"Found {module_name} (data-id: {data_id}, data-number: {data_number})")
+            except Exception as e:
+                print(f"Error processing header {i}: {str(e)}")
+        
+        if not modules:
+            print("No modules found in the section headers. Trying alternative method...")
+            # Try an alternative method to find modules
+            module_elements = driver.find_elements(By.XPATH, 
+                "//*[contains(text(), 'Module-') and (self::h3 or self::h4 or self::div or self::span or self::strong)]")
+            
+            for i, elem in enumerate(module_elements):
+                module_text = elem.text.strip()
+                module_match = re.search(r"Module-(\d+)", module_text, re.IGNORECASE)
+                
+                if module_match:
+                    module_count += 1
+                    module_num = module_match.group(1)
+                    module_name = f"Module-{module_num}"
+                    
+                    # Find closest parent that might be clickable
+                    parent = driver.execute_script(
+                        "return arguments[0].closest('.course-section-header, a, button, .clickable, .toggler')", 
+                        elem
+                    )
+                    
+                    if not parent:
+                        parent = elem
+                    
+                    modules[module_count] = {
+                        "name": module_name,
+                        "full_text": module_text,
+                        "element": parent
+                    }
+        
+        if not modules:
+            print("No modules found with either method. Taking screenshot...")
+            driver.save_screenshot("no_modules_found.png")
+            return None
+        
+        print("\nAvailable modules:")
+        for num, module_info in modules.items():
+            print(f"{num}. {module_info['name']} - {module_info['full_text']}")
+        
+        # Get user module selection
         while True:
             try:
-                selection = int(input(f"\nEnter the number of the week to access (1-{len(weeks)}): "))
-                if 1 <= selection <= len(weeks):
-                    selected_week = weeks[selection]
+                module_selection = int(input(f"\nEnter the number of the module to access (1-{len(modules)}): "))
+                if 1 <= module_selection <= len(modules):
+                    selected_module = modules[module_selection]
+                    break
+                else:
+                    print(f"Please enter a number between 1 and {len(modules)}.")
+            except ValueError:
+                print("Please enter a valid number.")
+        
+        print(f"\nSelected: {selected_module['name']} - {selected_module['full_text']}")
+        
+        # Find the clickable element to open the module
+        try:
+            # Try to find a toggle button within the header
+            toggle_button = selected_module['element'].find_element(By.CSS_SELECTOR, "a.btn, button.btn, .toggler, [data-toggle='collapse']")
+            
+            print(f"Found toggle button: {toggle_button.get_attribute('outerHTML')}")
+            driver.execute_script("arguments[0].scrollIntoView();", toggle_button)
+            time.sleep(1)
+            driver.execute_script("arguments[0].click();", toggle_button)
+            print(f"Clicked on toggle button for {selected_module['name']}")
+        except Exception as e:
+            print(f"Toggle button not found or click failed: {e}. Trying direct click on section header...")
+            try:
+                driver.execute_script("arguments[0].scrollIntoView();", selected_module['element'])
+                time.sleep(1)
+                driver.execute_script("arguments[0].click();", selected_module['element'])
+                print(f"Clicked directly on section header for {selected_module['name']}")
+            except Exception as e2:
+                print(f"Direct click failed: {e2}. Trying to find any clickable element within the section...")
+                try:
+                    # Look for any potentially clickable element
+                    clickable = selected_module['element'].find_element(By.CSS_SELECTOR, "a, button, [role='button'], .clickable")
+                    driver.execute_script("arguments[0].scrollIntoView();", clickable)
+                    time.sleep(1)
+                    driver.execute_script("arguments[0].click();", clickable)
+                    print(f"Found and clicked on element within section for {selected_module['name']}")
+                except Exception as e3:
+                    print(f"All click attempts failed: {e3}")
+                    print("Taking screenshot for debugging...")
+                    driver.save_screenshot("click_failure.png")
+        
+        time.sleep(3)
+        print(f"Module operation complete for: {selected_module['name']}")
+        return selected_module['name']
+        
+    except Exception as e:
+        print(f"Error selecting and opening module: {str(e)}")
+        traceback.print_exc()
+        driver.save_screenshot("module_open_error.png")
+        return None
+def select_and_open_week(driver):
+    try:
+        wait = WebDriverWait(driver, 10)
+        time.sleep(2)
+        
+        # Find all week sections using the class name
+        print("\nSearching for available weeks...")
+        section_headers = driver.find_elements(By.CSS_SELECTOR, "div.course-section-header.d-flex")
+        
+        if not section_headers:
+            print("No section headers found for weeks. Saving page source for inspection...")
+            with open("week_page.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print("Page source saved to 'week_page.html'")
+            return None
+        
+        # Extract weeks by looking for "Week-X" in the h3 elements
+        weeks = {}
+        week_count = 0
+        
+        for i, header in enumerate(section_headers):
+            try:
+                # Try to find h3 inside the header
+                h3_element = header.find_element(By.TAG_NAME, "h3")
+                h3_text = h3_element.text.strip()
+                
+                # Use regex to extract week number
+                week_match = re.search(r"Week-(\d+)", h3_text, re.IGNORECASE)
+                
+                if week_match:
+                    week_count += 1
+                    week_num = week_match.group(1)
+                    week_name = f"Week-{week_num}"
+                    
+                    # Get the data-id attribute for identification
+                    data_id = header.get_attribute("data-id")
+                    data_number = header.get_attribute("data-number")
+                    
+                    weeks[week_count] = {
+                        "name": week_name,
+                        "full_text": h3_text,
+                        "element": header,
+                        "data_id": data_id,
+                        "data_number": data_number
+                    }
+                    
+                    print(f"Found {week_name} (data-id: {data_id}, data-number: {data_number})")
+            except Exception as e:
+                print(f"Error processing week header {i}: {str(e)}")
+        
+        if not weeks:
+            print("No weeks found in the section headers. Trying alternative method...")
+            # Try an alternative method to find weeks
+            week_elements = driver.find_elements(By.XPATH, 
+                "//*[contains(text(), 'Week-') and (self::h3 or self::h4 or self::div or self::span or self::strong)]")
+            
+            for i, elem in enumerate(week_elements):
+                week_text = elem.text.strip()
+                week_match = re.search(r"Week-(\d+)", week_text, re.IGNORECASE)
+                
+                if week_match:
+                    week_count += 1
+                    week_num = week_match.group(1)
+                    week_name = f"Week-{week_num}"
+                    
+                    # Find closest parent that might be clickable
+                    parent = driver.execute_script(
+                        "return arguments[0].closest('.course-section-header, a, button, .clickable, .toggler')", 
+                        elem
+                    )
+                    
+                    if not parent:
+                        parent = elem
+                    
+                    weeks[week_count] = {
+                        "name": week_name,
+                        "full_text": week_text,
+                        "element": parent
+                    }
+        
+        if not weeks:
+            print("No weeks found with either method. Taking screenshot...")
+            driver.save_screenshot("no_weeks_found.png")
+            return None
+        
+        print("\nAvailable weeks:")
+        for num, week_info in weeks.items():
+            print(f"{num}. {week_info['name']} - {week_info['full_text']}")
+        
+        # Get user week selection
+        while True:
+            try:
+                week_selection = int(input(f"\nEnter the number of the week to access (1-{len(weeks)}): "))
+                if 1 <= week_selection <= len(weeks):
+                    selected_week = weeks[week_selection]
                     break
                 else:
                     print(f"Please enter a number between 1 and {len(weeks)}.")
             except ValueError:
                 print("Please enter a valid number.")
         
-        print(f"\nSelected: {selected_week['name']}")
+        print(f"\nSelected: {selected_week['name']} - {selected_week['full_text']}")
         
-        # First try to find and click the collapse/expand button
+        # Find the clickable element to open the week
         try:
-            # Look for the collapse/expand button within the week element
-            expand_button = selected_week['element'].find_element(By.CSS_SELECTOR, "a[data-toggle='collapse']")
-            driver.execute_script("arguments[0].scrollIntoView();", expand_button)
+            # Try to find a toggle button within the header
+            toggle_button = selected_week['element'].find_element(By.CSS_SELECTOR, "a.btn, button.btn, .toggler, [data-toggle='collapse']")
+            
+            print(f"Found toggle button: {toggle_button.get_attribute('outerHTML')}")
+            driver.execute_script("arguments[0].scrollIntoView();", toggle_button)
             time.sleep(1)
-            print(f"Clicking expand button for {selected_week['name']}...")
-            expand_button.click()
+            driver.execute_script("arguments[0].click();", toggle_button)
+            print(f"Clicked on toggle button for {selected_week['name']}")
         except Exception as e:
-            print(f"Couldn't find expand button: {e}. Trying alternative method...")
+            print(f"Toggle button not found or click failed: {e}. Trying direct click on section header...")
             try:
-                # If button not found, try clicking the week element directly
                 driver.execute_script("arguments[0].scrollIntoView();", selected_week['element'])
                 time.sleep(1)
                 driver.execute_script("arguments[0].click();", selected_week['element'])
-                print("Clicked week element directly")
+                print(f"Clicked directly on section header for {selected_week['name']}")
             except Exception as e2:
-                print(f"Direct click failed: {e2}. Trying to find clickable element within...")
+                print(f"Direct click failed: {e2}. Trying to find any clickable element within the section...")
                 try:
-                    # Try finding any clickable element inside
-                    clickable = selected_week['element'].find_element(By.CSS_SELECTOR, "a, button, h3")
+                    # Look for any potentially clickable element
+                    clickable = selected_week['element'].find_element(By.CSS_SELECTOR, "a, button, [role='button'], .clickable")
                     driver.execute_script("arguments[0].scrollIntoView();", clickable)
                     time.sleep(1)
                     driver.execute_script("arguments[0].click();", clickable)
-                    print("Found and clicked element inside week container")
+                    print(f"Found and clicked on element within section for {selected_week['name']}")
                 except Exception as e3:
                     print(f"All click attempts failed: {e3}")
-                    print("Taking screenshot of failure point...")
-                    driver.save_screenshot("week_click_failure.png")
+                    print("Taking screenshot for debugging...")
+                    driver.save_screenshot("click_failure.png")
         
         time.sleep(3)
-        print(f"Navigation to {selected_week['name']} attempted")
+        print(f"Week operation complete for: {selected_week['name']}")
         return selected_week['name']
         
     except Exception as e:
-        print(f"Error finding or selecting week: {str(e)}")
+        print(f"Error selecting and opening week: {str(e)}")
         traceback.print_exc()
-        driver.save_screenshot("week_error.png")
-        return None
-def expand_section_if_collapsed(driver, section_element):
-    """Helper function to expand a collapsed section"""
-    try:
-        # Check if section is collapsed
-        parent_div = driver.execute_script("return arguments[0].closest('.course-section-header')", section_element)
-        collapsed_btn = parent_div.find_element(By.CSS_SELECTOR, "a.collapsed")
-        
-        if collapsed_btn:
-            print("Section is collapsed. Expanding...")
-            driver.execute_script("arguments[0].click();", collapsed_btn)
-            time.sleep(1)
-            return True
-    except:
-        # Section might already be expanded or structure is different
-        pass
-    
-    return False
-def find_and_play_lectures(driver):
-    try:
-        wait = WebDriverWait(driver, 10)
-        time.sleep(3)
-        
-        print("Looking for lecture videos...")
-        video_elements = driver.find_elements(By.CSS_SELECTOR, "video, .video-js, iframe[src*='video'], a[href*='.mp4']")
-        
-        if not video_elements:
-            print("No direct video elements found. Looking for links...")
-            video_elements = driver.find_elements(By.XPATH, "//a[contains(text(), 'Lecture') or contains(text(), 'Video')]")
-        
-        lectures = {i + 1: {"element": elem, "name": elem.text.strip() or f"Video Element {i + 1}"} for i, elem in enumerate(video_elements)}
-        
-        if lectures:
-            print("\nPotential lecture videos found:")
-            for num, lecture_info in lectures.items():
-                print(f"{num}. {lecture_info['name']}")
-            
-            selection = int(input(f"\nEnter the number of the lecture to play (1-{len(lectures)}) or 0 to exit: "))
-            if selection == 0:
-                return None
-            selected_lecture = lectures[selection]
-            
-            print(f"\nSelected lecture: {selected_lecture['name']}")
-            lecture_element = selected_lecture['element']
-            driver.execute_script("arguments[0].scrollIntoView();", lecture_element)
-            
-            if lecture_element.tag_name.lower() == 'video':
-                driver.execute_script("arguments[0].play();", lecture_element)
-            else:
-                lecture_element.click()
-            
-            time.sleep(3)
-            print("Lecture navigation complete.")
-            return True
-        else:
-            print("No lecture videos found.")
-            return None
-            
-    except Exception as e:
-        print(f"Error finding or playing lectures: {str(e)}")
-        driver.save_screenshot("lecture_play_error.png")
+        driver.save_screenshot("week_open_error.png")
         return None
 
 def main():
@@ -424,21 +545,29 @@ def main():
             if not navigate_to_self_paced_learning(driver):
                 print("Failed to navigate to Self Paced Learning. Exiting.")
                 return
-                
-            selected_week = get_and_select_week(driver)
+            
+            # First, select and open a module
+            selected_module = select_and_open_module(driver)
+            if not selected_module:
+                print("Failed to select and open a module. Exiting.")
+                return
+            
+            # After opening the module, select and open a week
+            time.sleep(2)  # Wait for module content to load
+            selected_week = select_and_open_week(driver)
             if not selected_week:
-                print("Failed to select a week. Exiting.")
+                print("Failed to select and open a week. Exiting.")
                 return
                 
-            find_and_play_lectures(driver)
-            
+            print(f"\nSuccessfully navigated to {selected_module} > {selected_week}")
             print("\nAutomation sequence complete. Browser will remain open.")
             
         except Exception as e:
             print(f"An error occurred during automation: {str(e)}")
+            traceback.print_exc()
             driver.save_screenshot("automation_error.png")
     else:
         print("Login failed. Cannot proceed with navigation.")
-
+        
 if __name__ == "__main__":
     main()
