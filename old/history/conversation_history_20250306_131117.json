@@ -1,0 +1,7 @@
+[
+    {
+        "screenshot": "screenshots\\20250306_131117\\screenshot_20250306_131139.png",
+        "question_and_options": "The question posed in the image is: \"How did we infer that the game being reviewed in the previous example was in general 'well-liked'?\"\n\nThe options provided are:\n\n* Because the median score was 85 suggesting that most scores lean towards the higher end.\n* Because the box plot was very wide.\n* Because the IQR was very high and this meant the scores were clustered together.\n* Because the maximum value of the dataset was 95.",
+        "answer": "because the median score was 85 suggesting that most scores lean towards the higher end."
+    }
+]

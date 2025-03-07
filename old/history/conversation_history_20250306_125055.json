@@ -1,0 +1,12 @@
+[
+    {
+        "screenshot": "screenshots\\20250306_125055\\screenshot_20250306_125514.png",
+        "question_and_options": "The question posed in the image is: \"Q1 refers to\". The options provided are:\n\n* 50th percentile\n* 25th percentile\n* Median\n* 75th percentile\n* Best answer\n* Research",
+        "answer": "25th percentile"
+    },
+    {
+        "screenshot": "screenshots\\20250306_125055\\screenshot_20250306_130951.png",
+        "question_and_options": "The question posed in the image is: \"Why was 40 considered an outlier in the previous example?\" The options provided are:\n\n* Because its value was greater than the mean\n* Because its value was beyond the range of the whiskers\n* Because its value was less than the mean\n* Because its value was less than the minimum",
+        "answer": "because its value was beyond the range of the whiskers"
+    }
+]

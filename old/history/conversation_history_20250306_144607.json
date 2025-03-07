@@ -1,0 +1,17 @@
+[
+    {
+        "screenshot": "screenshots\\20250306_144607\\screenshot_20250306_144613.png",
+        "question_and_options": "The question and options from the image are:\n\n* MULTIPLE-CHOICE QUESTION\n* Which sector seems to have the lowest median salary in this dataset?\n* Retail\n* Healthcare\n* Education\n* Bewolch",
+        "answer": "retail"
+    },
+    {
+        "screenshot": "screenshots\\20250306_144607\\screenshot_20250306_144632.png",
+        "question_and_options": "The question and options from the image are:\n\n* MULTIPLE-CHOICE QUESTION\n* Large QR represents\n* A large variability in the dataset.\n* A low variability in the dataset.",
+        "answer": "a large variability in the dataset."
+    },
+    {
+        "screenshot": "screenshots\\20250306_144607\\screenshot_20250306_144646.png",
+        "question_and_options": "The question and options from the image are:\n\n* MULTIPLE-CHOICE QUESTION\n* Large QR represents\n* A large variability in the dataset.\n* A low variability in the dataset.",
+        "answer": "a large variability in the dataset."
+    }
+]

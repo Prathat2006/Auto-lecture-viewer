@@ -1,0 +1,12 @@
+[
+    {
+        "screenshot": "screenshots\\20250306_170949\\screenshot_20250306_171421.png",
+        "question_and_options": "The question and options from the image are:\n\nWhat does the following statement do?\n=filter(C:C, D:D = \"A\")\n\n* It filters all values in column D where column C is equal to \"A\".\n* It shows all those values of column C for which the corresponding value of column D was \"A\".\n* It replaces all occurrences of \"A\" in column D with the values from column C.",
+        "answer": "it shows all those values of column c for which the corresponding value of column d was a."
+    },
+    {
+        "screenshot": "screenshots\\20250306_170949\\screenshot_20250306_171437.png",
+        "question_and_options": "The question and options from the image are:\n\nWhat does the following statement do?\n=filter(C:C, D:D = \"A\")\n\n* It filters all values in columns D where column C is equal to \"A\".\n* It filters all those values of column C for which the corresponding value of column D was \"A\".\n* It replaces all occurrences of \"A\" in column D with the values from column C.",
+        "answer": "it filters all those values of column c for which the corresponding value of column d was a."
+    }
+]
