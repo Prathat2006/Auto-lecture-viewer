@@ -531,6 +531,152 @@ def select_and_open_week(driver):
         driver.save_screenshot("week_open_error.png")
         return None
 
+
+def select_and_open_lecture(driver):
+    try:
+        wait = WebDriverWait(driver, 10)
+        time.sleep(2)
+        
+        print("\nSearching for available lectures within the selected week containing Edpuzzle link...")
+        driver.save_screenshot("lectures_page.png")
+        
+        # Find all activity items
+        activity_blocks = driver.find_elements(By.CSS_SELECTOR, "div.activity-item")
+        
+        if not activity_blocks:
+            print("No lectures found in activity items. Saving page source...")
+            with open("week_content.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print("Page source saved to 'week_content.html'")
+            return None
+        
+        # Extract lecture information, filtering only those containing the specific Edpuzzle icon
+        lectures = {}
+        lecture_count = 0
+        
+        for i, block in enumerate(activity_blocks):
+            try:
+                # Check if the block contains the Edpuzzle favicon image
+                edpuzzle_icon = block.find_elements(By.CSS_SELECTOR, "img[src='https://edpuzzle.imgix.net/favicons/favicon-32.png']")
+                if not edpuzzle_icon:
+                    continue  # Skip this block if the icon is not found
+                
+                # Find the lecture link
+                link_element = block.find_element(By.CSS_SELECTOR, "a.aalink.stretched-link")
+                instance_element = link_element.find_element(By.CSS_SELECTOR, "span.instancename")
+                lecture_title = instance_element.text.strip()
+                
+                # Remove the "External tool" text if present
+                lecture_title = re.sub(r'\s*External tool\s*$', '', lecture_title)
+                
+                # Ensure the lecture has a valid name
+                if not lecture_title:
+                    continue  # Skip if no name is found
+                
+                # Ensure the link has an href attribute
+                href_value = link_element.get_attribute("href")
+                if href_value and href_value.strip():
+                    lecture_count += 1
+                    lecture_url = href_value
+                    
+                    lectures[lecture_count] = {
+                        "title": lecture_title,
+                        "element": link_element,
+                        "url": lecture_url
+                    }
+                    
+                    print(f"Found Edpuzzle lecture: {lecture_title} (URL: {lecture_url})")
+                
+            except Exception as e:
+                print(f"Error processing activity block {i}: {str(e)}")
+        
+        if not lectures:
+            print("No Edpuzzle lectures found. Taking screenshot...")
+            driver.save_screenshot("no_edpuzzle_lectures.png")
+            return None
+        
+        print("\nAvailable Edpuzzle lectures:")
+        for num, lecture_info in lectures.items():
+            print(f"{num}. {lecture_info['title']}")
+        
+        # Get user lecture selection
+        while True:
+            try:
+                lecture_selection = int(input(f"\nEnter the number of the lecture to access (1-{len(lectures)}): "))
+                if 1 <= lecture_selection <= len(lectures):
+                    selected_lecture = lectures[lecture_selection]
+                    break
+                else:
+                    print(f"Please enter a number between 1 and {len(lectures)}.")
+            except ValueError:
+                print("Please enter a valid number.")
+        
+        print(f"\nSelected lecture: {selected_lecture['title']}")
+        
+        # Try to open the lecture
+        try:
+            print(f"Opening lecture: {selected_lecture['title']}")
+            
+            # Scroll into view and click
+            driver.execute_script("arguments[0].scrollIntoView();", selected_lecture['element'])
+            time.sleep(1)
+            
+            # Store the initial URL
+            initial_url = driver.current_url
+            
+            # Try a direct click first
+            try:
+                selected_lecture['element'].click()
+                print("Clicked on lecture link")
+            except:
+                # If direct click fails, try JavaScript click
+                print("Direct click failed, trying JavaScript click...")
+                driver.execute_script("arguments[0].click();", selected_lecture['element'])
+                print("Used JavaScript to click on lecture link")
+            
+            time.sleep(3)  # Allow time for navigation
+            
+            # Verify if the lecture page has loaded by checking the header title
+            try:
+                lecture_header = driver.find_element(By.CSS_SELECTOR, "div.page-header-headings h1.h2").text.strip()
+                if lecture_header == selected_lecture['title']:
+                    print(f"Successfully opened lecture: {selected_lecture['title']}")
+                    return selected_lecture['title']
+                else:
+                    print("Lecture title does not match. Trying direct URL navigation...")
+            except:
+                print("Could not verify lecture title. Trying direct URL navigation...")
+            
+        except Exception as e:
+            print(f"Error opening lecture: {str(e)}")
+            traceback.print_exc()
+            driver.save_screenshot("lecture_open_error.png")
+        
+        # Try navigating directly to the URL as fallback
+        try:
+            print(f"Trying fallback: Navigating directly to lecture URL: {selected_lecture['url']}")
+            driver.get(selected_lecture['url'])
+            time.sleep(3)
+            
+            # Verify after direct navigation
+            lecture_header = driver.find_element(By.CSS_SELECTOR, "div.page-header-headings h1.h2").text.strip()
+            if lecture_header == selected_lecture['title']:
+                print(f"Successfully navigated to {selected_lecture['title']}")
+                return selected_lecture['title']
+            else:
+                print("Fallback navigation did not load the expected lecture.")
+                return None
+        except Exception as e2:
+            print(f"Fallback navigation failed: {str(e2)}")
+            return None
+        
+    except Exception as e:
+        print(f"Error selecting and opening lecture: {str(e)}")
+        traceback.print_exc()
+        driver.save_screenshot("lecture_selection_error.png")
+        return None
+
+
 def main():
     print("Starting LMS automation...")
     driver = login_to_lms()
@@ -558,8 +704,15 @@ def main():
             if not selected_week:
                 print("Failed to select and open a week. Exiting.")
                 return
+            
+            # After opening the week, select and open a lecture
+            time.sleep(2)  # Wait for week content to load
+            selected_lecture = select_and_open_lecture(driver)
+            if not selected_lecture:
+                print("Failed to select and open a lecture. Exiting.")
+                return
                 
-            print(f"\nSuccessfully navigated to {selected_module} > {selected_week}")
+            print(f"\nSuccessfully navigated to {selected_module} > {selected_week} > {selected_lecture}")
             print("\nAutomation sequence complete. Browser will remain open.")
             
         except Exception as e:
@@ -568,6 +721,6 @@ def main():
             driver.save_screenshot("automation_error.png")
     else:
         print("Login failed. Cannot proceed with navigation.")
-        
+
 if __name__ == "__main__":
     main()
