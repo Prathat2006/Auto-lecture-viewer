@@ -1,0 +1,8 @@
+{
+    "Question": "How do you verify that a computed matrix inverse is correct?",
+    "Option 1": "Multiply all elements of the matrix by 2",
+    "Option 2": "Multiply the original matrix by its inverse and check if the result is the identity matrix",
+    "Option 3": "Subtract the determinant from each element",
+    "Option 4": "Add the inverse to the original matrix and check if the result is zero",
+    "Final Answer": "Multiply the original matrix by its inverse and check if the result is the identity matrix"
+}

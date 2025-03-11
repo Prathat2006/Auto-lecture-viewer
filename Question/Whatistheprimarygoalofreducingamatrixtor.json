@@ -1,0 +1,11 @@
+{
+    "Question": "What is the primary goal of reducing a matrix to row echelon form (REF)?",
+    "Option 1": "To convert the matrix into a zero matrix",
+    "Option 2": "To make it easier to find the determinant",
+    "Option 3": "To simplify solving linear equations",
+    "Option 4": "To ensure that all elements become ones",
+    "Option 5": "",
+    "Option 6": "",
+    "Option 7": "",
+    "Option 8": ""
+}

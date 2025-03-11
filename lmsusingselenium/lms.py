@@ -11,49 +11,56 @@ import os
 import traceback
 import re
 from selenium.webdriver import ActionChains
-
-def setup_driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
+from lmsusingselenium.driver import setup_driver
+# def setup_driver():
+#     options = webdriver.ChromeOptions()
+#     options.add_argument("--start-maximized")
     
-    options.add_experimental_option("detach", True)  # Keeps browser open after script ends
+#     options.add_experimental_option("detach", True)  # Keeps browser open after script ends
     
-    # Block all permissions
-    options.add_argument("--disable-notifications")    
-    options.add_argument("--disable-features=ClipboardAPI")
-    options.add_argument("--disable-features=WebSensors")
-    options.add_argument("--use-fake-ui-for-media-stream")  # Denies camera/mic access
-    options.add_argument("--disable-features=GenericSensor")  # For motion sensors
-    options.add_argument("--disable-geolocation")  # Block location access
+#     # Block all permissions
+#     options.add_argument("--disable-notifications")    
+#     options.add_argument("--disable-features=ClipboardAPI")
+#     options.add_argument("--disable-features=WebSensors")
+#     options.add_argument("--use-fake-ui-for-media-stream")  # Denies camera/mic access
+#     options.add_argument("--disable-features=GenericSensor")  # For motion sensors
+#     options.add_argument("--disable-geolocation")  # Block location access
     
-    prefs = {
-        "profile.default_content_setting_values.clipboard": 2,  # 2 = block
-        "profile.default_content_setting_values.media_stream": 2,
-        "profile.default_content_setting_values.geolocation": 2,
-        "profile.default_content_setting_values.notifications": 2
+#     prefs = {
+#         "profile.default_content_setting_values.clipboard": 2,  # 2 = block
+#         "profile.default_content_setting_values.media_stream": 2,
+#         "profile.default_content_setting_values.geolocation": 2,
+#         "profile.default_content_setting_values.notifications": 2
         
-    }
-    options.add_experimental_option("prefs", prefs)
+#     }
+#     options.add_experimental_option("prefs", prefs)
     
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
+#     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+#     options.add_experimental_option("useAutomationExtension", False)
    
     
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+#     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     
-    driver.execute_cdp_cmd("Browser.grantPermissions", {
-        "permissions": [],
-        "origin": "https://iitjbsc.futurense.com"
-    })
+#     driver.execute_cdp_cmd("Browser.grantPermissions", {
+#         "permissions": [],
+#         "origin": "https://iitjbsc.futurense.com"
+#     })
     
-    # Get session ID
-    session_id = driver.session_id
+#     # Get session ID
+#     session_id = driver.session_id
 
-    # Save session ID to a file
-    with open("session.txt", "w") as file:
-        file.write(session_id)
+#     # Save session ID to a file
+#     with open("session.txt", "w") as file:
+#         file.write(session_id)
     
-    return driver
+#     # Save session ID and URL to a file
+#     session_id = driver.session_id
+#     executor_url = driver.command_executor._url  # Correct attribute
+
+#     with open("session.txt", "w") as file:
+#         file.write(f"{session_id}\n{executor_url}")
+    
+    # return driver
 
 def login_to_lms():
     load_dotenv()
@@ -758,9 +765,7 @@ def play_video(driver):
                      # Allow video player controls to initialize
                     set_video_speed(driver)
                     
-                    # Add fullscreen functionality
-                    set_fullscreen(driver)
-                                       
+           
                     return  # Exit function early as we've handled everything via JavaScript
                 except Exception as js_error:
                     print(f"JavaScript play failed: {js_error}")
@@ -778,9 +783,7 @@ def play_video(driver):
         print("Video started playing")
       
         set_video_speed(driver)    
-        # Add fullscreen functionality after video starts playing
-        set_fullscreen(driver)
-        
+       
     except Exception as e:
         print(f"An error occurred in play_video: {e}")
         traceback.print_exc()
@@ -797,7 +800,7 @@ def set_video_speed(driver):
     try:
         print("Setting video speed to 2x...")
         # Wait for the speed control button to be available and click it
-        speed_button = WebDriverWait(driver, 30).until(
+        speed_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, ".Y40-a18X9g, [aria-label='Playback Rate'], .playback-rate-button"))
         )
         
@@ -852,149 +855,3 @@ def set_video_speed(driver):
             return True
         except:
             return False
-
-def set_fullscreen(driver):
-    try:
-        print("Attempting to enable fullscreen mode...")
-        
-        # Try to find the fullscreen button with the specific selector from the HTML
-        try:
-            fullscreen_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Toggle Fullscreen']"))
-            )
-            print("Found fullscreen button with specific aria-label")
-        except Exception as specific_error:
-            print(f"Specific fullscreen button selector failed: {specific_error}")
-            
-            # Try alternative selectors based on the HTML structure
-            alternative_selectors = [
-                ".fa-expand-wide",  # The SVG icon class
-                "svg.fa-expand-wide",
-                "i[data-fa-i2svg] svg.fa-expand-wide",
-                ".vRiXkQIxXS i[data-fa-i2svg]",  # Parent structure
-                "button.OH1wmtLWI6[aria-label='Toggle Fullscreen']",
-                # More generic fallbacks
-                "[aria-label*='ullscreen']",
-                ".fullscreen-button",
-                "button[title*='ullscreen']"
-            ]
-            
-            fullscreen_button = None
-            for selector in alternative_selectors:
-                try:
-                    print(f"Trying fullscreen selector: {selector}")
-                    fullscreen_button = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                    )
-                    print(f"Found fullscreen button with selector: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not fullscreen_button:
-                # Try JavaScript fallback for fullscreen
-                print("All fullscreen button selectors failed. Trying JavaScript fullscreen...")
-                try:
-                    # First try to find video element and request fullscreen
-                    driver.execute_script("""
-                        var video = document.querySelector('video');
-                        if (video) {
-                            if (video.requestFullscreen) {
-                                video.requestFullscreen();
-                            } else if (video.webkitRequestFullscreen) {
-                                video.webkitRequestFullscreen();
-                            } else if (video.msRequestFullscreen) {
-                                video.msRequestFullscreen();
-                            }
-                        }
-                    """)
-                    print("Enabled fullscreen via JavaScript on video element")
-                    return
-                except Exception as js_video_error:
-                    print(f"JavaScript video fullscreen failed: {js_video_error}")
-                    
-                    # Try document level fullscreen as last resort
-                    try:
-                        driver.execute_script("""
-                            var elem = document.documentElement;
-                            if (elem.requestFullscreen) {
-                                elem.requestFullscreen();
-                            } else if (elem.webkitRequestFullscreen) {
-                                elem.webkitRequestFullscreen();
-                            } else if (elem.msRequestFullscreen) {
-                                elem.msRequestFullscreen();
-                            }
-                        """)
-                        print("Enabled fullscreen via JavaScript on document element")
-                        return
-                    except Exception as js_doc_error:
-                        print(f"JavaScript document fullscreen failed: {js_doc_error}")
-                        raise Exception("Could not enable fullscreen mode")
-        
-        # Click the fullscreen button with JavaScript fallback
-        try:
-            fullscreen_button.click()
-            print("Clicked fullscreen button directly")
-        except Exception as click_error:
-            print(f"Standard fullscreen click failed: {click_error}. Trying JavaScript click...")
-            driver.execute_script("arguments[0].click();", fullscreen_button)
-            print("Clicked fullscreen button using JavaScript")
-        
-        print("Video is now in fullscreen mode")
-        
-    except Exception as e:
-        print(f"An error occurred in set_fullscreen: {e}")
-        traceback.print_exc()
-        driver.save_screenshot("fullscreen_error.png")
-
-def main():
-    print("Starting LMS automation...")
-    driver = login_to_lms()
-    
-    if driver:
-        try:
-            selected_subject = select_and_navigate_to_subject(driver)
-            if not selected_subject:
-                print("Failed to navigate to subject. Exiting.")
-                return
-                
-            if not navigate_to_self_paced_learning(driver):
-                print("Failed to navigate to Self Paced Learning. Exiting.")
-                return
-            
-            # First, select and open a module
-            selected_module = select_and_open_module(driver)
-            if not selected_module:
-                print("Failed to select and open a module. Exiting.")
-                return
-            
-            # After opening the module, select and open a week
-            time.sleep(2)  # Wait for module content to load
-            selected_week = select_and_open_week(driver)
-            if not selected_week:
-                print("Failed to select and open a week. Exiting.")
-                return
-            
-            # After opening the week, select and open a lecture
-            time.sleep(2)  # Wait for week content to load
-            selected_lecture = select_and_open_lecture(driver)
-
-            if not selected_lecture:
-                print("Failed to select and open a lecture. Exiting.")
-                return
-                
-            print(f"\nSuccessfully navigated to {selected_module} > {selected_week} > {selected_lecture}")
-            time.sleep(5) # Wait for lecture to load
-            print("Playing in full screen")
-            play_video(driver)   
-            print("\nAutomation sequence complete. Browser will remain open.")
-            
-        except Exception as e:
-            print(f"An error occurred during automation: {str(e)}")
-            traceback.print_exc()
-            driver.save_screenshot("automation_error.png")
-    else:
-        print("Login failed. Cannot proceed with navigation.")
-
-if __name__ == "__main__":
-    main()

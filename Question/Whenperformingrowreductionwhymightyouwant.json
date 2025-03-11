@@ -1,0 +1,7 @@
+{
+    "Question": "When performing row reduction, why might you want to swap two rows?",
+    "Option 1": "To increase the determinant",
+    "Option 2": "To place a leading 1 in the correct position",
+    "Option 3": "To reduce all elements to zero",
+    "Option 4": "To make the matrix symmetric"
+}
