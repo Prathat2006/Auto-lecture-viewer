@@ -4,11 +4,14 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+import time
 import time
 from dotenv import load_dotenv
 import os
 import traceback
 import re
+import pyautogui
 
 def setup_driver():
     options = webdriver.ChromeOptions()
@@ -28,11 +31,13 @@ def setup_driver():
         "profile.default_content_setting_values.media_stream": 2,
         "profile.default_content_setting_values.geolocation": 2,
         "profile.default_content_setting_values.notifications": 2
+        
     }
     options.add_experimental_option("prefs", prefs)
     
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
+   
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     
@@ -40,6 +45,11 @@ def setup_driver():
         "permissions": [],
         "origin": "https://iitjbsc.futurense.com"
     })
+    session_id = driver.session_id
+
+# Save session ID to a file
+    with open("session.txt", "w") as file:
+        file.write(session_id)
     
     return driver
 
@@ -677,6 +687,27 @@ def select_and_open_lecture(driver):
         return None
 
 
+def play_video(driver):
+    try:
+        # Switch to the iframe
+        WebDriverWait(driver, 20).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, "contentframe"))
+        )
+        
+        # Wait for the play button to be clickable
+        play_button = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, ".WG_g81ShVt"))
+        )
+        
+        # Click the play button
+        play_button.click()
+        print("Video started playing")
+        
+           
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
 def main():
     print("Starting LMS automation...")
     driver = login_to_lms()
@@ -708,11 +739,15 @@ def main():
             # After opening the week, select and open a lecture
             time.sleep(2)  # Wait for week content to load
             selected_lecture = select_and_open_lecture(driver)
+
             if not selected_lecture:
                 print("Failed to select and open a lecture. Exiting.")
                 return
                 
             print(f"\nSuccessfully navigated to {selected_module} > {selected_week} > {selected_lecture}")
+            time.sleep(5) # Wait for
+            print("playing in full screen")
+            play_video(driver)   
             print("\nAutomation sequence complete. Browser will remain open.")
             
         except Exception as e:
