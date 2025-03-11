@@ -6,20 +6,20 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import time
-import time
 from dotenv import load_dotenv
 import os
 import traceback
 import re
-import pyautogui
+from selenium.webdriver import ActionChains
 
 def setup_driver():
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
+    
     options.add_experimental_option("detach", True)  # Keeps browser open after script ends
     
     # Block all permissions
-    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-notifications")    
     options.add_argument("--disable-features=ClipboardAPI")
     options.add_argument("--disable-features=WebSensors")
     options.add_argument("--use-fake-ui-for-media-stream")  # Denies camera/mic access
@@ -45,9 +45,11 @@ def setup_driver():
         "permissions": [],
         "origin": "https://iitjbsc.futurense.com"
     })
+    
+    # Get session ID
     session_id = driver.session_id
 
-# Save session ID to a file
+    # Save session ID to a file
     with open("session.txt", "w") as file:
         file.write(session_id)
     
@@ -127,7 +129,7 @@ def select_and_navigate_to_subject(driver):
     
     while True:
         try:
-            time.sleep(2)
+            time.sleep(5)
             selection = int(input("\nEnter the number of the subject you want to access (1-5): "))
             if 1 <= selection <= 5:
                 selected_subject = subjects[selection]
@@ -140,7 +142,7 @@ def select_and_navigate_to_subject(driver):
     print(f"\nNavigating to: {selected_subject}")
     
     try:
-        wait = WebDriverWait(driver, 30)  # Increased timeout
+        wait = WebDriverWait(driver, 50)  # Increased timeout
         current_url = driver.current_url
         print(f"Current URL before navigation: {current_url}")
         
@@ -397,12 +399,12 @@ def select_and_open_module(driver):
         traceback.print_exc()
         driver.save_screenshot("module_open_error.png")
         return None
+
 def select_and_open_week(driver):
     try:
         wait = WebDriverWait(driver, 10)
         time.sleep(2)
         
-        # Find all week sections using the class name
         print("\nSearching for available weeks...")
         section_headers = driver.find_elements(By.CSS_SELECTOR, "div.course-section-header.d-flex")
         
@@ -689,24 +691,261 @@ def select_and_open_lecture(driver):
 
 def play_video(driver):
     try:
-        # Switch to the iframe
-        WebDriverWait(driver, 20).until(
-            EC.frame_to_be_available_and_switch_to_it((By.ID, "contentframe"))
-        )
+        # Take a screenshot before switching to iframe for debugging
+        driver.save_screenshot("before_iframe.png")
+        
+        # Switch to the iframe with improved error handling
+        try:
+            print("Attempting to switch to content iframe...")
+            WebDriverWait(driver, 20).until(
+                EC.frame_to_be_available_and_switch_to_it((By.ID, "contentframe"))
+            )
+            print("Successfully switched to iframe")
+        except Exception as iframe_error:
+            print(f"Error switching to iframe by ID: {iframe_error}")
+            print("Trying alternative iframe approach...")
+            
+            # Try to find iframe by tag name
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            if iframes:
+                print(f"Found {len(iframes)} iframes. Switching to first one...")
+                driver.switch_to.frame(iframes[0])
+                print("Successfully switched to first iframe")
+            else:
+                raise Exception("No iframes found on the page")
+        
+        # Take a screenshot inside iframe for debugging
+        driver.save_screenshot("inside_iframe.png")
         
         # Wait for the play button to be clickable
-        play_button = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".WG_g81ShVt"))
+        try:
+            print("Looking for play button with original selector...")
+            play_button = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".WG_g81ShVt"))
+            )
+            print("Found play button with original selector")
+        except Exception as button_error:
+            print(f"Original play button selector failed: {button_error}")
+            print("Trying alternative play button selectors...")
+            
+            # Try alternative selectors for play button
+            alternative_selectors = [
+                "[aria-label='Play']",
+                ".vjs-play-control",
+                ".ytp-play-button",
+                "button[title='Play']",
+                ".play-button"
+            ]
+            
+            play_button = None
+            for selector in alternative_selectors:
+                try:
+                    print(f"Trying selector: {selector}")
+                    play_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    print(f"Found play button with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not play_button:
+                # If all selectors fail, try direct JavaScript to play the video
+                print("All play button selectors failed. Trying JavaScript play...")
+                try:
+                    driver.execute_script("document.querySelector('video').play();")
+                    print("Started video playback via JavaScript")
+                     # Allow video player controls to initialize
+                    set_video_speed(driver)
+                    
+                    # Add fullscreen functionality
+                    set_fullscreen(driver)
+                                       
+                    return  # Exit function early as we've handled everything via JavaScript
+                except Exception as js_error:
+                    print(f"JavaScript play failed: {js_error}")
+                    raise Exception("Could not find or interact with play button")
+        
+        # Click the play button with JavaScript fallback
+        try:
+            play_button.click()
+            print("Clicked play button directly")
+        except Exception as click_error:
+            print(f"Standard click failed: {click_error}. Trying JavaScript click...")
+            driver.execute_script("arguments[0].click();", play_button)
+            print("Clicked play button using JavaScript")
+        
+        print("Video started playing")
+      
+        set_video_speed(driver)    
+        # Add fullscreen functionality after video starts playing
+        set_fullscreen(driver)
+        
+    except Exception as e:
+        print(f"An error occurred in play_video: {e}")
+        traceback.print_exc()
+        driver.save_screenshot("play_video_error.png")
+        
+        # Try to switch back to default content in case we're stuck in a frame
+        try:
+            driver.switch_to.default_content()
+            print("Switched back to default content")
+        except:
+            pass
+
+def set_video_speed(driver):
+    try:
+        print("Setting video speed to 2x...")
+        # Wait for the speed control button to be available and click it
+        speed_button = WebDriverWait(driver, 30).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, ".Y40-a18X9g, [aria-label='Playback Rate'], .playback-rate-button"))
         )
         
-        # Click the play button
-        play_button.click()
-        print("Video started playing")
+        # Try standard click with JavaScript fallback
+        try:
+            speed_button.click()
+            print("Clicked speed button")
+        except Exception as click_error:
+            print(f"Standard click failed: {click_error}. Trying JavaScript click...")
+            driver.execute_script("arguments[0].click();", speed_button)
+            print("Clicked speed button using JavaScript")      
+       
+        # Look for the 2x option in the speed menu
+        speed_options = driver.find_elements(By.CSS_SELECTOR, ".playback-rate-menu button, .speed-option, [role='menuitemradio']")
         
-           
+        for option in speed_options:
+            if "2" in option.text or "2.0" in option.text or "2x" in option.text.lower():
+                print(f"Clicking on speed option: {option.text}")
+                
+                # Try standard click with JavaScript fallback
+                try:
+                    option.click()
+                    print("Clicked 2x option")
+                except Exception as option_click_error:
+                    print(f"Standard click on option failed: {option_click_error}. Trying JavaScript click...")
+                    driver.execute_script("arguments[0].click();", option)
+                    print("Clicked 2x option using JavaScript")
+                    
+                print("Video speed set to 2x")
+                return True
+        
+        # If UI interaction fails, try direct JavaScript approach
+        print("2x speed option not found or couldn't be clicked. Trying JavaScript approach...")
+        try:
+            driver.execute_script("document.querySelector('video').playbackRate = 2.0;")
+            print("Set playback speed to 2x via JavaScript")
+            return True
+        except Exception as js_error:
+            print(f"JavaScript speed setting failed: {js_error}")
+            driver.save_screenshot("speed_options.png")
+            return False
+        
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Error setting video speed: {str(e)}")
+        traceback.print_exc()
+        driver.save_screenshot("speed_error.png")
+        
+        # Try direct JavaScript approach as last resort
+        try:
+            driver.execute_script("document.querySelector('video').playbackRate = 2.0;")
+            print("Set playback speed to 2x via JavaScript fallback")
+            return True
+        except:
+            return False
 
+def set_fullscreen(driver):
+    try:
+        print("Attempting to enable fullscreen mode...")
+        
+        # Try to find the fullscreen button with the specific selector from the HTML
+        try:
+            fullscreen_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Toggle Fullscreen']"))
+            )
+            print("Found fullscreen button with specific aria-label")
+        except Exception as specific_error:
+            print(f"Specific fullscreen button selector failed: {specific_error}")
+            
+            # Try alternative selectors based on the HTML structure
+            alternative_selectors = [
+                ".fa-expand-wide",  # The SVG icon class
+                "svg.fa-expand-wide",
+                "i[data-fa-i2svg] svg.fa-expand-wide",
+                ".vRiXkQIxXS i[data-fa-i2svg]",  # Parent structure
+                "button.OH1wmtLWI6[aria-label='Toggle Fullscreen']",
+                # More generic fallbacks
+                "[aria-label*='ullscreen']",
+                ".fullscreen-button",
+                "button[title*='ullscreen']"
+            ]
+            
+            fullscreen_button = None
+            for selector in alternative_selectors:
+                try:
+                    print(f"Trying fullscreen selector: {selector}")
+                    fullscreen_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    print(f"Found fullscreen button with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not fullscreen_button:
+                # Try JavaScript fallback for fullscreen
+                print("All fullscreen button selectors failed. Trying JavaScript fullscreen...")
+                try:
+                    # First try to find video element and request fullscreen
+                    driver.execute_script("""
+                        var video = document.querySelector('video');
+                        if (video) {
+                            if (video.requestFullscreen) {
+                                video.requestFullscreen();
+                            } else if (video.webkitRequestFullscreen) {
+                                video.webkitRequestFullscreen();
+                            } else if (video.msRequestFullscreen) {
+                                video.msRequestFullscreen();
+                            }
+                        }
+                    """)
+                    print("Enabled fullscreen via JavaScript on video element")
+                    return
+                except Exception as js_video_error:
+                    print(f"JavaScript video fullscreen failed: {js_video_error}")
+                    
+                    # Try document level fullscreen as last resort
+                    try:
+                        driver.execute_script("""
+                            var elem = document.documentElement;
+                            if (elem.requestFullscreen) {
+                                elem.requestFullscreen();
+                            } else if (elem.webkitRequestFullscreen) {
+                                elem.webkitRequestFullscreen();
+                            } else if (elem.msRequestFullscreen) {
+                                elem.msRequestFullscreen();
+                            }
+                        """)
+                        print("Enabled fullscreen via JavaScript on document element")
+                        return
+                    except Exception as js_doc_error:
+                        print(f"JavaScript document fullscreen failed: {js_doc_error}")
+                        raise Exception("Could not enable fullscreen mode")
+        
+        # Click the fullscreen button with JavaScript fallback
+        try:
+            fullscreen_button.click()
+            print("Clicked fullscreen button directly")
+        except Exception as click_error:
+            print(f"Standard fullscreen click failed: {click_error}. Trying JavaScript click...")
+            driver.execute_script("arguments[0].click();", fullscreen_button)
+            print("Clicked fullscreen button using JavaScript")
+        
+        print("Video is now in fullscreen mode")
+        
+    except Exception as e:
+        print(f"An error occurred in set_fullscreen: {e}")
+        traceback.print_exc()
+        driver.save_screenshot("fullscreen_error.png")
 
 def main():
     print("Starting LMS automation...")
@@ -745,8 +984,8 @@ def main():
                 return
                 
             print(f"\nSuccessfully navigated to {selected_module} > {selected_week} > {selected_lecture}")
-            time.sleep(5) # Wait for
-            print("playing in full screen")
+            time.sleep(5) # Wait for lecture to load
+            print("Playing in full screen")
             play_video(driver)   
             print("\nAutomation sequence complete. Browser will remain open.")
             

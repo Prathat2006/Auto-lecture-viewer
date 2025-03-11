@@ -17,26 +17,35 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 
-# Read session ID from file
-with open("session.txt", "r") as file:
-    session_id = file.read().strip()
+# Read session ID from file or create new session
+session_file = "lmsusingselenium\session.txt"
+if os.path.exists(session_file):
+    with open(session_file, "r") as file:
+        session_id = file.read().strip()
+else:
+    session_id = None
 
-# Try to attach to existing browser session
+# Configure Chrome options
+chrome_options = Options()
+chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")  # Connect to existing Chrome instance
+
+# Try to attach to existing browser session or create new one
 try:
-    driver = webdriver.Remote(command_executor="http://localhost:9515", options=webdriver.ChromeOptions())
-    driver.session_id = session_id
-    print(f"Successfully attached to existing browser session: {session_id}")
+    driver = webdriver.Chrome(options=chrome_options)
+    if session_id:
+        driver.session_id = session_id
+        print(f"Successfully attached to existing browser session: {session_id}")
 except Exception as e:
     print(f"Failed to attach to existing session: {e}")
-    # Fallback to creating a new session if needed
-    driver = webdriver.Chrome()
-    # Save the new session ID
-    with open("session.txt", "w") as file:
+    # Fallback to creating a new session
+    driver = webdriver.Chrome(options=Options())
+    with open(session_file, "w") as file:
         file.write(driver.session_id)
     print(f"Created new browser session: {driver.session_id}")
 
-# Set pyautogui pause to ensure actions are not too fast
+# Set pyautogui pause
 pyautogui.PAUSE = 0.5
 
 class Config:
@@ -78,11 +87,11 @@ class GroqProcessor(LLMProcessor):
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Extract the question and options from this image. List each option exactly as it appears, including any leading symbols like '*', one per line."},
+                            {"type": "text", "text": "Extract the question and options from this image of a webpage. List each option exactly as it appears, including any leading symbols like '*', one per line."},
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}",
+                                    "url": f"data:image/png;base64,{base64_image}",
                                 },
                             },
                         ],
@@ -125,8 +134,8 @@ class OllamaProcessor(LLMProcessor):
             response = ollama.chat(
                 model=self.config.OLLAMA_VISION_MODEL,
                 messages=[
-                    {"role": "system", "content": "Extract questions and options from images. List each option exactly as it appears, including any leading symbols like '*', one per line."},
-                    {"role": "user", "content": f"data:image/jpeg;base64,{base64_image}"}
+                    {"role": "system", "content": "Extract questions and options from webpage screenshot. List each option exactly as it appears, including any leading symbols like '*', one per line."},
+                    {"role": "user", "content": f"data:image/png;base64,{base64_image}"}
                 ]
             )
             return response['message']['content']
@@ -170,10 +179,10 @@ class ImageProcessor:
             json.dump(self.history, history_file, indent=4)
     
     def take_screenshot(self):
-        """Take full screen screenshot for LLM processing"""
+        """Take screenshot of current browser window"""
         screenshot_path = os.path.join(self.screenshot_folder, f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png")
-        pyautogui.screenshot(screenshot_path)
-        print(f"Full screenshot saved as {screenshot_path}")
+        self.driver.save_screenshot(screenshot_path)
+        print(f"Browser screenshot saved as {screenshot_path}")
         return screenshot_path
     
     def process_image(self, image_path):
@@ -373,29 +382,52 @@ class FloatingUI:
                     options.append(option)
         return options
     
-    def select_option(self, answer, options):
+    def select_option(self, answer):
         try:
-            # Assume options are in a list or radio buttons with text content
+            # Try different common patterns for multiple-choice options
             option_elements = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@class, 'option') or @type='radio' or @type='checkbox']"))
+                EC.presence_of_all_elements_located((
+                    By.XPATH, 
+                    "//*[(@type='radio' or @type='checkbox') or contains(@class, 'option') or contains(@class, 'choice') or .//label]"
+                ))
             )
             
             for element in option_elements:
+                # Get text from element or its label
                 option_text = element.text.strip().lower().rstrip('.')
-                if answer in option_text:
-                    element.click()
-                    print(f"Clicked option: {option_text}")
-                    
-                    # Try to find and click the submit button
+                if not option_text:  # If no direct text, check for label
                     try:
-                        submit_button = WebDriverWait(self.driver, 5).until(
-                            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit') or contains(@class, 'submit')]"))
-                        )
-                        submit_button.click()
-                        print("Clicked Submit button")
+                        label = element.find_element(By.XPATH, ".//label | .//following-sibling::label")
+                        option_text = label.text.strip().lower().rstrip('.')
+                    except:
+                        continue
+                
+                if answer in option_text:
+                    try:
+                        # Click the radio/checkbox or its label
+                        if element.get_attribute('type') in ['radio', 'checkbox']:
+                            element.click()
+                        else:
+                            label = element.find_element(By.XPATH, ".//input[@type='radio' or @type='checkbox']")
+                            label.click()
+                        print(f"Clicked option: {option_text}")
+                        
+                        # Try to find and click the submit button
+                        try:
+                            submit_button = WebDriverWait(self.driver, 5).until(
+                                EC.element_to_be_clickable((
+                                    By.XPATH, 
+                                    "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'submit') or contains(@class, 'submit')]"
+                                ))
+                            )
+                            submit_button.click()
+                            print("Clicked Submit button")
+                        except Exception as e:
+                            print(f"Could not find or click Submit button: {e}")
+                        return
                     except Exception as e:
-                        print(f"Could not find or click Submit button: {e}")
-                    return
+                        print(f"Error clicking element: {e}")
+                        continue
             
             print(f"No matching option found for answer '{answer}'")
         except Exception as e:
@@ -403,20 +435,21 @@ class FloatingUI:
 
     def process_detection(self):
         try:
-            self.speech_manager.announce("Processing image")
+            self.speech_manager.announce("Processing webpage")
             screenshot_path = self.image_processor.take_screenshot()
             question_and_options = self.image_processor.process_image(screenshot_path)
             print("\nExtracted Text:\n", question_and_options)
             
             options = self.get_options_from_extracted_text(question_and_options)
             if not options:
-                print("No valid options extracted from the image.")
+                print("No valid options extracted from the webpage.")
                 return
+            
             answer = self.image_processor.get_answer(question_and_options)
             print("\nFinal Answer:\n", answer)
             
             time.sleep(1)
-            self.select_option(answer, options)
+            self.select_option(answer)
             
             self.speech_manager.speak_answer(answer)
         except Exception as e:
@@ -428,9 +461,10 @@ class FloatingUI:
 def main():
     print("Starting Assistant...")
     print("Features:")
-    print("- Click 'Detect' or say 'wake up' to process screen and auto-select answer")
+    print("- Click 'Detect' or say 'wake up' to process current webpage and auto-select answer")
     print("- Click 'Silence' or say 'silence' to stop speaking")
     print("- Click 'Close' or say 'close' to exit")
+    print("\nNote: Ensure Chrome is running with remote debugging enabled (--remote-debugging-port=9222)")
     
     config = Config()
     app = FloatingUI(config, driver)
