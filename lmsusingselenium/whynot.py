@@ -2,21 +2,29 @@ import os
 import json
 import time
 import re
+from threading import Timer, Lock
 from lmsusingselenium.driver import setup_driver
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from edpuzzlesolver.llminit import LLMManager
 
+# Track cumulative interaction timing adjustments
+interaction_timing = {
+    "cumulative_delay": 0,  # Total accumulated delay from previous interactions
+    "timing_lock": Lock()   # Lock for thread-safe updates
+}
 
+a = 15
 def sanitize_filename(name):
     """Removes invalid filename characters."""
     return re.sub(r'[^a-zA-Z0-9_-]', '', name[:50])
+
 def extract_interaction_times(driver):
     """
     Extracts interaction time points from the video player timeline and schedules
     the question extraction and answering functions to run at those times.
     Handles both single and multiple interaction markers.
-    Adjusts timing for video playback speed.
+    Adjusts timing for video playback speed and cumulative processing delays.
     
     Args:
         driver: Selenium WebDriver instance
@@ -82,17 +90,29 @@ def extract_interaction_times(driver):
         playback_rate = driver.execute_script(playback_rate_script)
         print(f"Current video playback rate: {playback_rate}x")
         
+        # Get the current cumulative delay
+        with interaction_timing["timing_lock"]:
+            cumulative_delay = interaction_timing["cumulative_delay"]
+            
+        if cumulative_delay > 0:
+            print(f"Current cumulative delay: {cumulative_delay:.2f} seconds")
+        
         # Schedule functions to run at each interaction time
-        for interaction_time in interaction_times:
+        for idx, interaction_time in enumerate(interaction_times):
             if interaction_time > current_time:
-                # Calculate wait time (subtract current video time)
-                # Adjust for playback speed - if video plays at 2x, we need to wait half the time
-                wait_seconds = (interaction_time - current_time) / playback_rate
+                # Base wait time (without adjustments)
+                base_wait_seconds = (interaction_time - current_time) / playback_rate
                 
-                print(f"Scheduling interaction at {interaction_time} seconds (in {wait_seconds} seconds from now at {playback_rate}x speed)")
+                # Adjust wait time by ADDING the cumulative delay (since the video progress bar stops during interactions)
+                # This extends our wait time to account for the paused video during previous interactions
+                adjusted_wait = base_wait_seconds + (cumulative_delay / playback_rate)
+                
+                print(f"Scheduling interaction at {interaction_time} seconds:")
+                print(f"  - Base wait: {base_wait_seconds:.2f}s")
+                print(f"  - Adjusted wait: {adjusted_wait:.2f}s (includes {cumulative_delay:.2f}s delay at {playback_rate}x speed)")
                 
                 # Create a timer that will run the extraction and answering functions
-                timer = Timer(wait_seconds, process_interaction, args=[driver])
+                timer = Timer(adjusted_wait, process_interaction, args=[driver, interaction_time])
                 timer.daemon = True  # Allow the timer to be terminated when the main program exits
                 timer.start()
         
@@ -140,13 +160,48 @@ def check_and_skip_attempted_question(driver):
         print(f"Error checking attempted status: {str(e)}")
         return False
 
-# Integrate into process_interaction
-def process_interaction(driver):
-    print("\n=== Interaction point reached ===")
+def update_interaction_timing(start_time):
+    """
+    Updates the cumulative delay based on how long this interaction took.
+    Thread-safe implementation using a lock.
+    
+    Args:
+        start_time: Time when interaction processing started
+        
+    Returns:
+        float: Time elapsed for this interaction
+    """
+    elapsed = time.time() - start_time
+    
+    with interaction_timing["timing_lock"]:
+        # Add this interaction's time to the cumulative delay
+        interaction_timing["cumulative_delay"] += elapsed
+        total_delay = interaction_timing["cumulative_delay"]
+        
+    print(f"Interaction completed in {elapsed:.2f} seconds")
+    print(f"Cumulative delay is now {total_delay:.2f} seconds")
+    
+    return elapsed
+
+# Integrate timing tracking into process_interaction
+def process_interaction(driver, interaction_time=None):
+    start_time = time.time()
+    current_time = int(time.time())
+    print(f"\n=== Interaction point reached at {current_time} (timestamp: {time.time():.2f}) ===")
+    
+    if interaction_time:
+        playback_rate_script = "return document.querySelector('video').playbackRate;"
+        playback_rate = driver.execute_script(playback_rate_script)
+        current_time_script = "return document.querySelector('video').currentTime;"
+        video_time = driver.execute_script(current_time_script)
+        print(f"Video current time: {video_time:.2f}s, Expected interaction time: {interaction_time}s, Playback rate: {playback_rate}x")
+    
     time.sleep(5)
     
     # Check if question is already attempted
     if check_and_skip_attempted_question(driver):
+        # Still update timing even if we skipped
+        update_interaction_timing(start_time)
         return  # Skip further processing if attempted
     
     # Proceed with normal question processing if not attempted
@@ -188,7 +243,7 @@ def process_interaction(driver):
                     
                     # Try to find and click the "Next" button if we haven't processed all interactions
                     try:
-                        next_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Next']")
+                        next_button = driver.find_element(By.CSS_SELECTOR, "div.n_fDEjdOhe button span.vRiXkQIxXS")
                         driver.execute_script("arguments[0].click();", next_button)
                         print("Clicked Next button to move to next question")
                         time.sleep(2)
@@ -231,6 +286,11 @@ def process_interaction(driver):
                 select_answer_in_ui(driver, answer)
         except:
             print("Failed to salvage the interaction")
+    
+    # Update timing statistics before returning
+    elapsed_time = update_interaction_timing(start_time)
+    return elapsed_time
+
 def extract_question_and_options(driver):
     """
     Extract question and options from the current LMS page using the provided driver,
@@ -243,7 +303,7 @@ def extract_question_and_options(driver):
         attempts = 8  # Number of attempts
         for attempt in range(attempts):
             # Wait for elements to load
-            time.sleep(5 if attempt == 0 else 7)  # Wait 2 seconds initially, then 5 seconds if retrying
+            time.sleep(5 if attempt == 0 else 7)  # Wait 5 seconds initially, then 7 seconds if retrying
             
             try:
                 # Extract the question
@@ -278,6 +338,7 @@ def extract_question_and_options(driver):
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return None
+
 def answer_question_with_fallback(question_data):
     """
     Uses LLM fallback system to answer the given question based on provided options.
@@ -310,6 +371,7 @@ def answer_question_with_fallback(question_data):
     
     print(f"Answer saved in {file_name}")
     return final_answer
+
 def select_answer_in_ui(driver, answer):
     try:
         # Find all option elements
@@ -321,7 +383,7 @@ def select_answer_in_ui(driver, answer):
                 checkbox = driver.find_element(By.ID, input_id)
                 driver.execute_script("arguments[0].click();", checkbox)
                 print(f"Selected answer: {answer}")
-                time.sleep(15)  # Brief wait for selection
+                time.sleep(a)  # Brief wait for selection
                 
                 # Try to submit the answer
                 try:
