@@ -49,7 +49,7 @@ def main():
             if interaction_times:
                 print(f"Found {len(interaction_times)} interaction points. Automation will process them as they occur.")
                 
-                # Keep the script running until all interactions are processed
+                # Keep the script running until all interactions are processed  and..
                 max_time = max(interaction_times) + 30  # Add 30 seconds buffer
                 print(f"Script will run for approximately {max_time} seconds")
                 

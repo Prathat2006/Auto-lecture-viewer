@@ -1,0 +1,7 @@
+{
+    "Question": "Which Python library provides an easy way to compute matrix inverses?",
+    "Option 1": "Matplotlib",
+    "Option 2": "Scipy",
+    "Option 3": "NumPy",
+    "Option 4": "Pandas"
+}

@@ -1,7 +1,7 @@
 {
     "Question": "What does it mean if a matrix has linearly dependent rows or columns?",
-    "Option 1": "Some rows or columns can be expressed as a combination of others",
+    "Option 1": "The matrix is always invertible",
     "Option 2": "The matrix has full rank",
-    "Option 3": "The matrix is always invertible",
-    "Option 4": "The matrix must be a square matrix"
+    "Option 3": "The matrix must be a square matrix",
+    "Option 4": "Some rows or columns can be expressed as a combination of others"
 }

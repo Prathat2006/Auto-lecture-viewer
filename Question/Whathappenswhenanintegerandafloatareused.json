@@ -1,7 +1,7 @@
 {
     "Question": "What happens when an integer and a float are used in the same operation?",
-    "Option 1": "The result is always an integer",
+    "Option 1": "The result is always a float",
     "Option 2": "Python throws a TypeError",
-    "Option 3": "The result is always a float",
+    "Option 3": "The result is always an integer",
     "Option 4": "The operation is invalid"
 }

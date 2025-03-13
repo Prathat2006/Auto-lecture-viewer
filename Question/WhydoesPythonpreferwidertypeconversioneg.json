@@ -1,0 +1,7 @@
+{
+    "Question": "Why does Python prefer wider type conversion (e.g., int to float) over narrower conversion (e.g., float to int)?",
+    "Option 1": "To make operations faster",
+    "Option 2": "To save memory",
+    "Option 3": "To preserve data accuracy and prevent unintentional data loss",
+    "Option 4": "Because integers are always converted to strings first"
+}

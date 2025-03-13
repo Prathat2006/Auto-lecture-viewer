@@ -1,0 +1,7 @@
+{
+    "Question": "What is the result of multiplying a matrix by its inverse?",
+    "Option 1": "A zero matrix",
+    "Option 2": "The matrix remains unchanged",
+    "Option 3": "The identity matrix",
+    "Option 4": "A diagonal matrix"
+}

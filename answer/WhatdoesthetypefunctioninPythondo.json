@@ -1,8 +1,8 @@
 {
     "Question": "What does the type() function in Python do?",
-    "Option 1": "It deletes the variable from memory",
-    "Option 2": "It converts a variable from one type to another",
-    "Option 3": "It checks the memory location of a variable",
-    "Option 4": "It determines the data type of a given value or variable",
+    "Option 1": "It checks the memory location of a variable",
+    "Option 2": "It deletes the variable from memory",
+    "Option 3": "It determines the data type of a given value or variable",
+    "Option 4": "It converts a variable from one type to another",
     "Final Answer": "It determines the data type of a given value or variable"
 }

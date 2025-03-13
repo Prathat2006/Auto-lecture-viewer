@@ -1,0 +1,7 @@
+{
+    "Question": "What are primitive data types in Python?",
+    "Option 1": "Data types defined by the programmer",
+    "Option 2": "Data types provided by the programming language itself",
+    "Option 3": "Data types that require manual memory allocation",
+    "Option 4": "Data types that can store only numbers"
+}

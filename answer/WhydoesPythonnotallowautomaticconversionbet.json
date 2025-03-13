@@ -1,8 +1,8 @@
 {
     "Question": "Why does Python not allow automatic conversion between strings and integers?",
     "Option 1": "Strings are always larger in memory",
-    "Option 2": "It's neither widening nor narrowing conversion",
-    "Option 3": "Python does not support operations between different types",
-    "Option 4": "Python is a statically typed language",
+    "Option 2": "Python does not support operations between different types",
+    "Option 3": "Python is a statically typed language",
+    "Option 4": "It's neither widening nor narrowing conversion",
     "Final Answer": "It's neither widening nor narrowing conversion"
 }

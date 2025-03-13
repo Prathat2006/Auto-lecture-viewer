@@ -1,7 +1,7 @@
 {
     "Question": "What is the main difference between a Python expression and a statement?",
     "Option 1": "An expression does not have an output",
-    "Option 2": "A statement is always a single line of code",
-    "Option 3": "A statement is always a mathematical operation",
-    "Option 4": "An expression always returns a value, whereas a statement does not"
+    "Option 2": "A statement is always a mathematical operation",
+    "Option 3": "An expression always returns a value, whereas a statement does not",
+    "Option 4": "A statement is always a single line of code"
 }

@@ -1,7 +1,7 @@
 {
     "Question": "What determines the precedence of operators in Python?",
-    "Option 1": "A fixed precedence hierarchy defined by Python",
-    "Option 2": "The type of data being used",
-    "Option 3": "User-defined precedence settings",
-    "Option 4": "The order they appear in the code"
+    "Option 1": "The order they appear in the code",
+    "Option 2": "A fixed precedence hierarchy defined by Python",
+    "Option 3": "The type of data being used",
+    "Option 4": "User-defined precedence settings"
 }

@@ -1,7 +1,7 @@
 {
     "Question": "What is the primary purpose of data types in Python?",
-    "Option 1": "To prevent certain values from being stored",
-    "Option 2": "To differentiate between different kinds of stored values",
-    "Option 3": "To restrict the size of memory usage",
+    "Option 1": "To differentiate between different kinds of stored values",
+    "Option 2": "To restrict the size of memory usage",
+    "Option 3": "To prevent certain values from being stored",
     "Option 4": "To make Python run faster"
 }

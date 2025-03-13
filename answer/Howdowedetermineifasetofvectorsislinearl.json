@@ -1,0 +1,8 @@
+{
+    "Question": "How do we determine if a set of vectors is linearly independent?",
+    "Option 1": "Transpose the matrix",
+    "Option 2": "Compute the rank of the matrix containing the vectors",
+    "Option 3": "Multiply the vectors by a scalar",
+    "Option 4": "Compute the determinant of the matrix",
+    "Final Answer": "Compute the rank of the matrix containing the vectors"
+}

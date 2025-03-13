@@ -1,0 +1,8 @@
+{
+    "Question": "What does the rank of a matrix represent?",
+    "Option 1": "The sum of all elements in the matrix",
+    "Option 2": "The number of zero elements in the matrix",
+    "Option 3": "The number of rows and columns in the matrix",
+    "Option 4": "The maximum number of linearly independent rows or columns",
+    "Final Answer": "The maximum number of linearly independent rows or columns"
+}

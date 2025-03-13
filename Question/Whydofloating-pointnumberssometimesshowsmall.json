@@ -1,11 +1,8 @@
 {
     "Question": "Why do floating-point numbers sometimes show small inaccuracies in Python?",
-    "Option 1": "Because they store an infinite number of decimal places",
-    "Option 2": "Because they are stored as approximations in binary form",
-    "Option 3": "Because they take up less memory than integers",
-    "Option 4": "Because Python does not support decimal numbers",
-    "Option 5": "",
-    "Option 6": "",
-    "Option 7": "",
-    "Option 8": ""
+    "Option 1": "Because Python does not support decimal numbers",
+    "Option 2": "Because they take up less memory than integers",
+    "Option 3": "Because they are stored as approximations in binary form",
+    "Option 4": "Because they store an infinite number of decimal places"
+
 }
